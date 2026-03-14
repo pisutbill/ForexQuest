@@ -1,0 +1,238 @@
+import "dotenv/config";
+import { PrismaClient } from "../src/generated/prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+const prisma = new PrismaClient({ adapter });
+
+// country name → currency code
+const countries: Record<string, string> = {
+  "Afghanistan": "AFN",
+  "Albania": "ALL",
+  "Algeria": "DZD",
+  "Angola": "AOA",
+  "Argentina": "ARS",
+  "Armenia": "AMD",
+  "Aruba": "AWG",
+  "Australia": "AUD",
+  "Azerbaijan": "AZN",
+  "Bahamas": "BSD",
+  "Bahrain": "BHD",
+  "Bangladesh": "BDT",
+  "Barbados": "BBD",
+  "Belarus": "BYN",
+  "Belize": "BZD",
+  "Bermuda": "BMD",
+  "Bhutan": "BTN",
+  "Bolivia": "BOB",
+  "Bosnia and Herzegovina": "BAM",
+  "Botswana": "BWP",
+  "Brazil": "BRL",
+  "Brunei": "BND",
+  "Bulgaria": "BGN",
+  "Burundi": "BIF",
+  "Cambodia": "KHR",
+  "Canada": "CAD",
+  "Cape Verde": "CVE",
+  "Cayman Islands": "KYD",
+  "Chile": "CLP",
+  "China": "CNY",
+  "Colombia": "COP",
+  "Comoros": "KMF",
+  "Congo": "CDF",
+  "Costa Rica": "CRC",
+  "Croatia": "HRK",
+  "Cuba": "CUP",
+  "Czech Republic": "CZK",
+  "Denmark": "DKK",
+  "Djibouti": "DJF",
+  "Dominican Republic": "DOP",
+  "Egypt": "EGP",
+  "El Salvador": "SVC",
+  "Eritrea": "ERN",
+  "Ethiopia": "ETB",
+  "Falkland Islands": "FKP",
+  "Fiji": "FJD",
+  "Gambia": "GMD",
+  "Georgia": "GEL",
+  "Ghana": "GHS",
+  "Gibraltar": "GIP",
+  "Guatemala": "GTQ",
+  "Guinea": "GNF",
+  "Guyana": "GYD",
+  "Haiti": "HTG",
+  "Honduras": "HNL",
+  "Hong Kong": "HKD",
+  "Hungary": "HUF",
+  "Iceland": "ISK",
+  "India": "INR",
+  "Indonesia": "IDR",
+  "Iran": "IRR",
+  "Iraq": "IQD",
+  "Israel": "ILS",
+  "Jamaica": "JMD",
+  "Japan": "JPY",
+  "Jordan": "JOD",
+  "Kazakhstan": "KZT",
+  "Kenya": "KES",
+  "North Korea": "KPW",
+  "South Korea": "KRW",
+  "Kuwait": "KWD",
+  "Kyrgyzstan": "KGS",
+  "Laos": "LAK",
+  "Lebanon": "LBP",
+  "Lesotho": "LSL",
+  "Liberia": "LRD",
+  "Libya": "LYD",
+  "Macau": "MOP",
+  "North Macedonia": "MKD",
+  "Madagascar": "MGA",
+  "Malawi": "MWK",
+  "Malaysia": "MYR",
+  "Maldives": "MVR",
+  "Mauritania": "MRU",
+  "Mauritius": "MUR",
+  "Mexico": "MXN",
+  "Moldova": "MDL",
+  "Mongolia": "MNT",
+  "Morocco": "MAD",
+  "Mozambique": "MZN",
+  "Myanmar": "MMK",
+  "Namibia": "NAD",
+  "Nepal": "NPR",
+  "New Zealand": "NZD",
+  "Nicaragua": "NIO",
+  "Nigeria": "NGN",
+  "Norway": "NOK",
+  "Oman": "OMR",
+  "Pakistan": "PKR",
+  "Panama": "PAB",
+  "Papua New Guinea": "PGK",
+  "Paraguay": "PYG",
+  "Peru": "PEN",
+  "Philippines": "PHP",
+  "Poland": "PLN",
+  "Qatar": "QAR",
+  "Romania": "RON",
+  "Russia": "RUB",
+  "Rwanda": "RWF",
+  "Saint Helena": "SHP",
+  "São Tomé and Príncipe": "STN",
+  "Saudi Arabia": "SAR",
+  "Serbia": "RSD",
+  "Seychelles": "SCR",
+  "Sierra Leone": "SLE",
+  "Singapore": "SGD",
+  "Solomon Islands": "SBD",
+  "Somalia": "SOS",
+  "South Africa": "ZAR",
+  "Sri Lanka": "LKR",
+  "Sudan": "SDG",
+  "Suriname": "SRD",
+  "Eswatini": "SZL",
+  "Sweden": "SEK",
+  "Switzerland": "CHF",
+  "Syria": "SYP",
+  "Taiwan": "TWD",
+  "Tajikistan": "TJS",
+  "Tanzania": "TZS",
+  "Thailand": "THB",
+  "Trinidad and Tobago": "TTD",
+  "Tunisia": "TND",
+  "Turkey": "TRY",
+  "Turkmenistan": "TMT",
+  "Uganda": "UGX",
+  "Ukraine": "UAH",
+  "United Arab Emirates": "AED",
+  "United Kingdom": "GBP",
+  "United States": "USD",
+  "Uruguay": "UYU",
+  "Uzbekistan": "UZS",
+  "Vanuatu": "VUV",
+  "Venezuela": "VES",
+  "Vietnam": "VND",
+  "Yemen": "YER",
+  "Zambia": "ZMW",
+  "Zimbabwe": "ZWL",
+  // Eurozone
+  "Austria": "EUR",
+  "Belgium": "EUR",
+  "Cyprus": "EUR",
+  "Estonia": "EUR",
+  "Finland": "EUR",
+  "France": "EUR",
+  "Germany": "EUR",
+  "Greece": "EUR",
+  "Ireland": "EUR",
+  "Italy": "EUR",
+  "Latvia": "EUR",
+  "Lithuania": "EUR",
+  "Luxembourg": "EUR",
+  "Malta": "EUR",
+  "Netherlands": "EUR",
+  "Portugal": "EUR",
+  "Slovakia": "EUR",
+  "Slovenia": "EUR",
+  "Spain": "EUR",
+  // CFA Franc BEAC
+  "Cameroon": "XAF",
+  "Central African Republic": "XAF",
+  "Chad": "XAF",
+  "Equatorial Guinea": "XAF",
+  "Gabon": "XAF",
+  "Republic of the Congo": "XAF",
+  // CFA Franc BCEAO
+  "Benin": "XOF",
+  "Burkina Faso": "XOF",
+  "Côte d'Ivoire": "XOF",
+  "Guinea-Bissau": "XOF",
+  "Mali": "XOF",
+  "Niger": "XOF",
+  "Senegal": "XOF",
+  "Togo": "XOF",
+  // East Caribbean Dollar
+  "Antigua and Barbuda": "XCD",
+  "Dominica": "XCD",
+  "Grenada": "XCD",
+  "Saint Kitts and Nevis": "XCD",
+  "Saint Lucia": "XCD",
+  "Saint Vincent and the Grenadines": "XCD",
+  // CFP Franc
+  "French Polynesia": "XPF",
+  "New Caledonia": "XPF",
+};
+
+async function main() {
+  console.log(`Seeding ${Object.keys(countries).length} countries...`);
+
+  // Load all currencies into a map for quick lookup
+  const currencies = await prisma.currency.findMany({
+    select: { id: true, countryCode: true },
+  });
+  const codeToId = Object.fromEntries(currencies.map((c) => [c.countryCode, c.id]));
+
+  let inserted = 0;
+  let skipped = 0;
+
+  await Promise.all(
+    Object.entries(countries).map(async ([name, code]) => {
+      const currencyId = codeToId[code];
+      if (!currencyId) {
+        console.warn(`Currency not found for ${name} (${code})`);
+        skipped++;
+        return;
+      }
+
+      await prisma.country.upsert({
+        where: { countryName: name },
+        update: { currencyId },
+        create: { countryName: name, currencyId },
+      });
+      inserted++;
+    })
+  );
+
+  console.log(`Done! Inserted/updated: ${inserted}, Skipped: ${skipped}`);
+}
+
+main().catch(console.error).finally(() => prisma.$disconnect());

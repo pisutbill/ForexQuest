@@ -12,17 +12,27 @@ datasource db {
   provider = "postgresql"
 }
 
-model Country {
+model Currency {
   id              Int              @id @default(autoincrement())
   countryCode     String           @unique @db.VarChar(256)
+  countryName     String?          @db.VarChar(256)
+  currencyName    String?          @db.VarChar(256)
   historicalRates HistoricalRate[]
+  countries       Country[]
+}
+
+model Country {
+  id          Int      @id @default(autoincrement())
+  countryName String   @unique @db.VarChar(256)
+  currencyId  Int
+  currency    Currency @relation(fields: [currencyId], references: [id])
 }
 
 model HistoricalRate {
-  countryId Int
-  year      Int
-  rate      Float
-  country   Country @relation(fields: [countryId], references: [id])
+  countryId  Int
+  year       Int
+  rate       Float
+  currency   Currency @relation(fields: [countryId], references: [id])
 
   @@id([countryId, year])
 }

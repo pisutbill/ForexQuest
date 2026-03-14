@@ -52,7 +52,7 @@ async function main() {
     if (!rates) continue;
 
     for (const [code, rate] of Object.entries(rates)) {
-      const country = await prisma.country.upsert({
+      const country = await prisma.currency.upsert({
         where: { countryCode: code },
         update: {},
         create: { countryCode: code },
