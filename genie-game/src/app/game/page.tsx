@@ -38,6 +38,7 @@ export default function GamePage() {
   const [currentRates, setCurrentRates] = useState<Record<string, number>>({});
   const [phase, setPhase] = useState<GamePhase>('investing');
   const [roundResults, setRoundResults] = useState<RoundResult[]>([]);
+  const [lastRoundResults, setLastRoundResults] = useState<RoundResult[]>([]);
   const [prevBalance, setPrevBalance] = useState(STARTING_BALANCE);
   const [ratesLoading, setRatesLoading] = useState(true);
   const [ratesError, setRatesError] = useState(false);
@@ -165,6 +166,7 @@ export default function GamePage() {
   };
 
   const handleContinue = () => {
+    setLastRoundResults(roundResults);
     setPhase('investing');
     setRoundResults([]);
   };
@@ -223,6 +225,8 @@ export default function GamePage() {
               balanceUSD={balanceUSD}
               existingHoldings={existingHoldingsForSelected}
               currentRound={round}
+              year={year}
+              lastRoundResult={lastRoundResults.find((r) => r.currencyCode === selectedCurrencyCode) ?? null}
               onBuy={handleBuy}
               onClose={handleClosePanel}
             />

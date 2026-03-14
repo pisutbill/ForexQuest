@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     const response = await client.chat.completions.create({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.5-flash-lite",
       messages: [
         {
           role: "system",

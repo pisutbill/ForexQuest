@@ -1,7 +1,7 @@
-'use client';
+ 'use client';
 
-import { useState } from 'react';
-import { CurrencyInfo, Holding } from '@/types/game';
+import { useEffect, useState } from 'react';
+import { CurrencyInfo, Holding, RoundResult } from '@/types/game';
 import { COUNTRY_FLAG, getVolatilityLabel } from '@/data/currencies';
 
 interface CurrencyBuyPanelProps {
@@ -11,6 +11,8 @@ interface CurrencyBuyPanelProps {
   balanceUSD: number;
   existingHoldings: Holding[];
   currentRound: number;
+  year: number;
+  lastRoundResult: RoundResult | null;
   onBuy: (usdAmount: number) => void;
   onClose: () => void;
 }
@@ -22,10 +24,49 @@ export default function CurrencyBuyPanel({
   balanceUSD,
   existingHoldings,
   currentRound,
+  year,
+  lastRoundResult,
   onBuy,
   onClose,
 }: CurrencyBuyPanelProps) {
   const [usdInput, setUsdInput] = useState('');
+  const [aiAnalysis, setAiAnalysis] = useState<{
+    overview: string;
+    key_points: string[];
+    risk: 'low' | 'mid' | 'high';
+  } | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  const [lastRoundSummary, setLastRoundSummary] = useState<{
+    performance: 'up' | 'down' | 'flat';
+    explanation: string;
+    reasons: string[];
+    verdict: string;
+    yearTransition: string;
+  } | null>(null);
+  const [lastRoundSummaryDone, setLastRoundSummaryDone] = useState(false);
+
+  useEffect(() => {
+    if (!lastRoundResult) return;
+    fetch('/api/after-summary-country', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        country: lastRoundResult.countryName,
+        currency: lastRoundResult.currencyCode,
+        yearTransition: `${year - 2}-${year - 1}`,
+        currentValue: Math.round(lastRoundResult.newUSDValue),
+        rateChange: parseFloat(lastRoundResult.rateChangePct.toFixed(2)),
+        position: 'long',
+        amountInvested: lastRoundResult.usdSpent,
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => { if (data?.explanation) setLastRoundSummary(data); })
+      .catch(() => null)
+      .finally(() => setLastRoundSummaryDone(true));
+  }, [lastRoundResult]);
 
   const usdAmount = parseFloat(usdInput) || 0;
   const foreignAmount = usdAmount * currentRate;
@@ -56,6 +97,31 @@ export default function CurrencyBuyPanel({
     if (!isValidAmount) return;
     onBuy(usdAmount);
     setUsdInput('');
+  };
+
+  const handleAiAnalysis = async () => {
+    setAiLoading(true);
+    setAiAnalysis(null);
+    setAiError(null);
+    try {
+      const res = await fetch('/api/before-summary-country', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ year, country: countryName }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setAiError(data?.error ?? 'Request failed');
+      } else if (data?.overview) {
+        setAiAnalysis(data);
+      } else {
+        setAiError('unavailable');
+      }
+    } catch (err: any) {
+      setAiError(err?.message ?? 'Unknown error');
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   return (
@@ -127,9 +193,84 @@ export default function CurrencyBuyPanel({
           </div>
         )}
 
+        {/* Last round summary */}
+        {lastRoundResult && (
+          <div className="bg-slate-800 rounded-xl p-4 space-y-2">
+            <p className="text-slate-400 text-xs uppercase tracking-widest">Last Round</p>
+            {!lastRoundSummaryDone ? (
+              <div className="flex items-center gap-2 text-slate-500 text-xs">
+                <div className="w-3 h-3 border border-slate-500 border-t-transparent rounded-full animate-spin" />
+                Analyzing…
+              </div>
+            ) : !lastRoundSummary ? (
+              <p className="text-slate-500 text-xs">Analysis unavailable.</p>
+            ) : (
+              <>
+                <div className="flex items-center gap-2">
+                  <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                    lastRoundSummary.performance === 'up' ? 'bg-green-900/60 text-green-400' :
+                    lastRoundSummary.performance === 'down' ? 'bg-red-900/60 text-red-400' :
+                    'bg-slate-700 text-slate-400'
+                  }`}>
+                    {lastRoundSummary.performance === 'up' ? '▲ UP' : lastRoundSummary.performance === 'down' ? '▼ DOWN' : '— FLAT'}
+                  </span>
+                  <span className="text-slate-500 text-xs">{lastRoundSummary.yearTransition}</span>
+                </div>
+                <p className="text-slate-300 text-xs leading-relaxed">{lastRoundSummary.explanation}</p>
+                <ul className="space-y-1">
+                  {(lastRoundSummary.reasons ?? []).map((r, i) => (
+                    <li key={i} className="text-slate-400 text-xs flex gap-1.5">
+                      <span className="text-slate-500 shrink-0">·</span>{r}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-slate-400 text-xs italic border-t border-slate-700 pt-2">{lastRoundSummary.verdict}</p>
+              </>
+            )}
+          </div>
+        )}
+
         {/* Buy form */}
         <div className="bg-slate-800 rounded-xl p-4 space-y-4">
-          <p className="text-slate-400 text-xs uppercase tracking-widest">Invest this Round</p>
+          <div className="flex items-center justify-between">
+            <p className="text-slate-400 text-xs uppercase tracking-widest">Invest this Round</p>
+            <button
+              onClick={handleAiAnalysis}
+              disabled={aiLoading}
+              className="text-xs text-blue-400 hover:text-blue-300 disabled:text-slate-500 transition-colors"
+            >
+              {aiLoading ? 'Analyzing…' : 'AI Analysis'}
+            </button>
+          </div>
+
+          {aiError && (
+            <p className="text-slate-500 text-xs">
+              {aiError === 'unavailable' ? 'Analysis unavailable.' : aiError}
+            </p>
+          )}
+
+          {aiAnalysis && (
+            <div className="bg-slate-700/50 rounded-lg p-3 space-y-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span className={`px-2 py-0.5 rounded font-semibold ${
+                  aiAnalysis.risk === 'low' ? 'bg-green-900/60 text-green-400' :
+                  aiAnalysis.risk === 'mid' ? 'bg-amber-900/60 text-amber-400' :
+                  'bg-red-900/60 text-red-400'
+                }`}>
+                  {aiAnalysis.risk.toUpperCase()} RISK
+                </span>
+              </div>
+              <p className="text-slate-300 leading-relaxed">{aiAnalysis.overview}</p>
+              <ul className="space-y-1">
+                {aiAnalysis.key_points.map((point, i) => (
+                  <li key={i} className="text-slate-400 flex gap-1.5">
+                    <span className="text-slate-500 shrink-0">·</span>
+                    {point}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div>
             <label className="text-slate-400 text-xs mb-1.5 block">Amount in USD</label>

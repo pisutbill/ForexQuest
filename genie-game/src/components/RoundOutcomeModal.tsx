@@ -1,6 +1,16 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { RoundResult } from '@/types/game';
+
+type AiOverview = {
+  summary: string;
+  portfolioTrend: 'positive' | 'negative' | 'mixed' | 'flat';
+  key_drivers: string[];
+  best_performer?: string;
+  worst_performer?: string;
+  verdict: string;
+};
 
 interface RoundOutcomeModalProps {
   round: number;
@@ -19,6 +29,31 @@ export default function RoundOutcomeModal({
   previousBalance,
   onContinue,
 }: RoundOutcomeModalProps) {
+  const [aiOverview, setAiOverview] = useState<AiOverview | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiDone, setAiDone] = useState(false);
+
+  useEffect(() => {
+    if (results.length === 0) return;
+    setAiLoading(true);
+    const holdings = results.map((r) => ({
+      country: r.countryName,
+      currency: r.currencyCode,
+      yearTransition: `${year - 1}-${year}`,
+      currentValue: Math.round(r.newUSDValue),
+      rateChange: parseFloat(r.rateChangePct.toFixed(2)),
+    }));
+    fetch('/api/result-overview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ holdings }),
+    })
+      .then((res) => res.json())
+      .then((data) => { if (data?.summary) setAiOverview(data); })
+      .catch(() => null)
+      .finally(() => { setAiLoading(false); setAiDone(true); });
+  }, []);
+
   const formatUSD = (n: number) =>
     n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
@@ -152,6 +187,49 @@ export default function RoundOutcomeModal({
             })
           )}
         </div>
+
+        {/* AI Overview */}
+        {(aiLoading || aiDone) && (
+          <div className="px-6 py-4 border-t border-slate-700 space-y-2">
+            <p className="text-slate-400 text-xs uppercase tracking-widest">AI Analysis</p>
+            {aiLoading ? (
+              <div className="flex items-center gap-2 text-slate-500 text-sm">
+                <div className="w-3 h-3 border border-slate-500 border-t-transparent rounded-full animate-spin" />
+                Analyzing your portfolio…
+              </div>
+            ) : !aiOverview ? (
+              <p className="text-slate-500 text-xs">Analysis unavailable.</p>
+            ) : (
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                    aiOverview.portfolioTrend === 'positive' ? 'bg-green-900/60 text-green-400' :
+                    aiOverview.portfolioTrend === 'negative' ? 'bg-red-900/60 text-red-400' :
+                    aiOverview.portfolioTrend === 'mixed' ? 'bg-amber-900/60 text-amber-400' :
+                    'bg-slate-700 text-slate-400'
+                  }`}>
+                    {aiOverview.portfolioTrend.toUpperCase()}
+                  </span>
+                  {aiOverview.best_performer && (
+                    <span className="text-xs text-slate-400">Best: <span className="text-green-400">{aiOverview.best_performer}</span></span>
+                  )}
+                  {aiOverview.worst_performer && (
+                    <span className="text-xs text-slate-400">Worst: <span className="text-red-400">{aiOverview.worst_performer}</span></span>
+                  )}
+                </div>
+                <p className="text-slate-300 leading-relaxed">{aiOverview.summary}</p>
+                <ul className="space-y-1">
+                  {aiOverview.key_drivers.map((d, i) => (
+                    <li key={i} className="text-slate-400 text-xs flex gap-1.5">
+                      <span className="text-slate-500 shrink-0">·</span>{d}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-slate-400 text-xs italic border-t border-slate-700 pt-2">{aiOverview.verdict}</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Footer: balance summary + continue */}
         <div className="px-6 py-4 border-t border-slate-700 bg-slate-800/50">

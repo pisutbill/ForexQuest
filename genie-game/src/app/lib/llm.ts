@@ -7,7 +7,7 @@ export const client = new OpenAI({
 
 export async function askJson<T>(messages: { role: "system" | "user"; content: string }[]): Promise<T> {
   const response = await client.chat.completions.create({
-    model: "gemini-2.5-flash",
+    model: "gemini-2.5-flash-lite",
     messages,
     response_format: { type: "json_object" },
   });
