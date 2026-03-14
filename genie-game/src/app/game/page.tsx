@@ -181,8 +181,12 @@ export default function GamePage() {
   };
 
   const countryCodeMap = useMemo(
-    () => Object.fromEntries(Object.entries(countryToCurrency).map(([k, v]) => [k, v.code])),
-    [countryToCurrency]
+    () => Object.fromEntries(
+      Object.entries(countryToCurrency)
+        .filter(([, v]) => currentRates[v.code] !== undefined)
+        .map(([k, v]) => [k, v.code])
+    ),
+    [countryToCurrency, currentRates]
   );
 
   const selectedCurrency = selectedCurrencyCode
