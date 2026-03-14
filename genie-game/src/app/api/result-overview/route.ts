@@ -38,7 +38,18 @@ Rules:
 - Identify the overall direction of the portfolio.
 - Explain major shared trends, strongest winners, and biggest drags.
 - Keep it concise and readable for a game UI.
+- Write the "summary" field in structured markdown.
+- Use headings, bullets, and bold emphasis.
+- Do not wrap markdown in code fences.
 - Return ONLY valid JSON.
+
+Formatting requirements for "summary":
+- Start with "## Portfolio Overview"
+- Then "## Key Drivers"
+- End with "## Bottom Line"
+- Use bullet points under "Key Drivers"
+- Use bold emphasis for major patterns like **broad dollar strength**, **regional weakness**, **portfolio concentration**, **best performer**, **worst performer**
+- Keep it under 160 words
 
 Return exactly this shape:
 {

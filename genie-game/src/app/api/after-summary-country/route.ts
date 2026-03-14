@@ -38,7 +38,18 @@ Rules:
 - If the trade result is positive, explain why it likely gained.
 - If the trade result is negative, explain why it likely lost.
 - If near zero, treat as flat.
+- Write the "explanation" field in structured markdown.
+- Use headings, bullets, and bold emphasis.
+- Do not wrap markdown in code fences.
 - Return ONLY valid JSON.
+
+Formatting requirements for "explanation":
+- Start with "## What Happened"
+- Then "## Main Drivers"
+- End with "## Trade Takeaway"
+- Use bullet points under "Main Drivers"
+- Use bold emphasis for key drivers like **depreciation**, **appreciation**, **interest rates**, **political instability**, **capital flows**, **crisis pressure**
+- Keep it under 140 words
 
 Return exactly this shape:
 {

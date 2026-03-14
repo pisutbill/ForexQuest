@@ -30,7 +30,19 @@ Rules:
 - Focus on financial, economic, and political conditions relevant to currency risk.
 - Speak as if helping a player decide whether this country looks stable or risky before investing.
 - Do not mention future years beyond the specified year.
+- Write the "overview" field in well-structured markdown.
+- The markdown should feel polished and readable in a UI.
+- Use short sections, bold emphasis, and bullet points where helpful.
+- Do not wrap the markdown in code fences.
 - Return ONLY valid JSON.
+
+Formatting requirements for "overview":
+- Start with a heading: "## Market Snapshot"
+- Then add a second heading: "## Why It Matters"
+- End with a third heading: "## Takeaway"
+- Use bullet points under "Why It Matters"
+- Use bold emphasis for important terms like **exports**, **inflation**, **political unrest**, **currency pressure**, **investor confidence**
+- Keep the whole overview under 140 words
 
 Return exactly this shape:
 {
