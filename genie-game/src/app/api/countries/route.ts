@@ -10,9 +10,12 @@ export async function GET() {
     include: { Currency: true },
   });
 
-  const mapping: Record<string, string> = {};
+  const mapping: Record<string, { code: string; name: string }> = {};
   for (const row of rows) {
-    mapping[row.countryName] = row.Currency.countryCode;
+    mapping[row.countryName] = {
+      code: row.Currency.countryCode,
+      name: row.Currency.currencyName ?? row.Currency.countryCode,
+    };
   }
 
   return NextResponse.json({ countries: mapping });
