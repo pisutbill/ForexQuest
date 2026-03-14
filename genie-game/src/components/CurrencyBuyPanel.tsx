@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { CurrencyInfo, Holding, RoundResult } from '@/types/game';
 import { COUNTRY_FLAG, getVolatilityLabel } from '@/data/currencies';
+import CountryChatPopup from '@/components/ChatPopup';
 
 interface CurrencyBuyPanelProps {
   countryName: string;
@@ -30,6 +31,7 @@ export default function CurrencyBuyPanel({
   onClose,
 }: CurrencyBuyPanelProps) {
   const [usdInput, setUsdInput] = useState('');
+  const [chatOpen, setChatOpen] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<{
     overview: string;
     key_points: string[];
@@ -135,16 +137,34 @@ export default function CurrencyBuyPanel({
             <p className="text-slate-400 text-xs mt-0.5">{currency.currencyName}</p>
           </div>
         </div>
-        <button
-          onClick={onClose}
-          className="text-slate-500 hover:text-white transition-colors p-1"
-          aria-label="Close"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setChatOpen(true)}
+            className="text-slate-500 hover:text-blue-400 transition-colors p-1"
+            aria-label="Open chat"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+          </button>
+          <button
+            onClick={onClose}
+            className="text-slate-500 hover:text-white transition-colors p-1"
+            aria-label="Close"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       </div>
+
+      <CountryChatPopup
+        country={countryName}
+        year={year}
+        open={chatOpen}
+        onClose={() => setChatOpen(false)}
+      />
 
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
         {/* Exchange rate */}
