@@ -2,7 +2,6 @@ export interface CurrencyInfo {
   currencyCode: string;
   currencyName: string;
   symbol: string;
-  baseRateToUSD: number; // 1 USD = X foreign currency
   flag: string;
   volatility: 'low' | 'medium' | 'high';
   description: string;

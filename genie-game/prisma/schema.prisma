@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -13,16 +8,26 @@ datasource db {
 }
 
 model Country {
-  id              Int              @id @default(autoincrement())
-  countryCode     String           @unique @db.VarChar(256)
-  historicalRates HistoricalRate[]
+  id          Int      @id @default(autoincrement())
+  countryName String   @unique @db.VarChar(256)
+  currencyId  Int
+  Currency    Currency @relation(fields: [currencyId], references: [id])
 }
 
 model HistoricalRate {
   countryId Int
   year      Int
   rate      Float
-  country   Country @relation(fields: [countryId], references: [id])
+  country   Currency @relation(fields: [countryId], references: [id])
 
   @@id([countryId, year])
+}
+
+model Currency {
+  id              Int              @id @default(autoincrement())
+  countryCode     String           @unique @db.VarChar(256)
+  countryName     String?          @db.VarChar(256)
+  currencyName    String?          @db.VarChar(256)
+  Country         Country[]
+  historicalRates HistoricalRate[]
 }

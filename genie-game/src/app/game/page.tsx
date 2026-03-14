@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import GameHeader from '@/components/GameHeader';
 import CurrencyBuyPanel from '@/components/CurrencyBuyPanel';
@@ -21,37 +21,48 @@ const WorldMap = dynamic(() => import('@/components/WorldMap'), {
   ),
 });
 
-const START_YEAR = 2024;
+const START_YEAR = 2000;
 const STARTING_BALANCE = 10_000;
 
-function buildInitialRates(): Record<string, number> {
-  return Object.fromEntries(
-    Object.entries(CURRENCIES).map(([code, info]) => [code, info.baseRateToUSD])
-  );
+async function fetchRatesForYear(year: number): Promise<Record<string, number> | null> {
+  const res = await fetch(`/api/rates?year=${year}`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.rates ?? null;
 }
 
 export default function GamePage() {
   const [round, setRound] = useState(1);
   const [balanceUSD, setBalanceUSD] = useState(STARTING_BALANCE);
   const [holdings, setHoldings] = useState<Holding[]>([]);
-  const [currentRates, setCurrentRates] = useState<Record<string, number>>(buildInitialRates);
+  const [currentRates, setCurrentRates] = useState<Record<string, number>>({});
   const [phase, setPhase] = useState<GamePhase>('investing');
   const [roundResults, setRoundResults] = useState<RoundResult[]>([]);
   const [prevBalance, setPrevBalance] = useState(STARTING_BALANCE);
+  const [ratesLoading, setRatesLoading] = useState(true);
+  const [ratesError, setRatesError] = useState(false);
 
-  // Map selection state
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [selectedCurrencyCode, setSelectedCurrencyCode] = useState<string | null>(null);
 
   const year = START_YEAR + round - 1;
   const totalInvested = holdings.reduce((sum, h) => sum + h.usdSpent, 0);
 
+  useEffect(() => {
+    fetchRatesForYear(START_YEAR).then((rates) => {
+      if (rates) {
+        setCurrentRates(rates);
+      } else {
+        setRatesError(true);
+      }
+      setRatesLoading(false);
+    });
+  }, []);
+
   const existingHoldingsForSelected = useMemo(
     () => holdings.filter((h) => h.currencyCode === selectedCurrencyCode),
     [holdings, selectedCurrencyCode]
   );
-
-  // --- Handlers ---
 
   const handleCountryClick = (countryName: string, currencyCode: string) => {
     setSelectedCountry(countryName);
@@ -67,9 +78,8 @@ export default function GamePage() {
     if (!selectedCurrencyCode || !selectedCountry) return;
     const currency = CURRENCIES[selectedCurrencyCode];
     if (!currency) return;
-
-    const rate = currentRates[selectedCurrencyCode] ?? currency.baseRateToUSD;
-    const amountFC = usdAmount * rate;
+    const rate = currentRates[selectedCurrencyCode];
+    if (!rate) return;
 
     const newHolding: Holding = {
       id: `${selectedCurrencyCode}-${Date.now()}`,
@@ -78,7 +88,7 @@ export default function GamePage() {
       countryName: selectedCountry,
       symbol: currency.symbol,
       flag: currency.flag,
-      amountFC,
+      amountFC: usdAmount * rate,
       purchaseRateToUSD: rate,
       usdSpent: usdAmount,
       roundPurchased: round,
@@ -86,39 +96,19 @@ export default function GamePage() {
 
     setHoldings((prev) => [...prev, newHolding]);
     setBalanceUSD((prev) => prev - usdAmount);
-    // Close panel after purchase
     setSelectedCountry(null);
     setSelectedCurrencyCode(null);
   };
 
-  const simulateRateChange = (
-    code: string,
-    currentRate: number
-  ): number => {
-    const currency = CURRENCIES[code];
-    if (!currency) return currentRate;
-
-    const volatilityRange = {
-      low: 0.05,
-      medium: 0.13,
-      high: 0.28,
-    }[currency.volatility];
-
-    // Random change in [-range, +range]
-    const changePct = (Math.random() * 2 - 1) * volatilityRange;
-    return currentRate * (1 + changePct);
-  };
-
-  const handleNextRound = () => {
+  const handleNextRound = async () => {
     if (phase === 'outcome') return;
 
-    // Generate new rates for all currencies
-    const newRates: Record<string, number> = {};
-    Object.keys(CURRENCIES).forEach((code) => {
-      newRates[code] = simulateRateChange(code, currentRates[code] ?? CURRENCIES[code].baseRateToUSD);
-    });
+    const newRates = await fetchRatesForYear(year + 1);
+    if (!newRates) {
+      setRatesError(true);
+      return;
+    }
 
-    // Group holdings by currency for result calculation
     const grouped = holdings.reduce<Record<string, Holding[]>>((acc, h) => {
       (acc[h.currencyCode] ??= []).push(h);
       return acc;
@@ -128,18 +118,14 @@ export default function GamePage() {
       const currency = CURRENCIES[code];
       const totalFC = hs.reduce((s, h) => s + h.amountFC, 0);
       const totalSpent = hs.reduce((s, h) => s + h.usdSpent, 0);
-      const avgPurchaseRate = totalFC / totalSpent; // FC per USD
-      const purchaseRateToUSD = totalFC / totalSpent; // FC per USD (same)
-      const newRate = newRates[code];
+      const purchaseRateToUSD = totalFC / totalSpent;
+      const newRate = newRates[code] ?? currentRates[code];
       const newUSDValue = totalFC / newRate;
       const pnl = newUSDValue - totalSpent;
       const pnlPct = (pnl / totalSpent) * 100;
-
-      // Rate change from perspective of the FC value (lower rate = stronger FC)
-      const oldRateUSD = currentRates[code]; // 1 USD = X FC
-      const rateChangePct = ((newRate - oldRateUSD) / oldRateUSD) * 100;
-      // Currency strengthened means rate went DOWN (fewer FC per USD)
-      const currencyChangePct = -rateChangePct; // flip: positive = currency strengthened
+      const oldRate = currentRates[code];
+      const rateChangePct = ((newRate - oldRate) / oldRate) * 100;
+      const currencyChangePct = -rateChangePct;
 
       return {
         currencyCode: code,
@@ -149,7 +135,7 @@ export default function GamePage() {
         flag: currency?.flag ?? '🏳',
         amountFC: totalFC,
         usdSpent: totalSpent,
-        purchaseRateToUSD: purchaseRateToUSD,
+        purchaseRateToUSD,
         newRateToUSD: newRate,
         rateChangePct,
         currencyChangePct,
@@ -159,7 +145,6 @@ export default function GamePage() {
       };
     });
 
-    // New balance = cash + liquidated holdings
     const liquidatedValue = results.reduce((sum, r) => sum + r.newUSDValue, 0);
     const newBalance = balanceUSD + liquidatedValue;
 
@@ -179,8 +164,29 @@ export default function GamePage() {
     setRoundResults([]);
   };
 
-  const selectedCurrency =
-    selectedCurrencyCode ? CURRENCIES[selectedCurrencyCode] : null;
+  const selectedCurrency = selectedCurrencyCode ? CURRENCIES[selectedCurrencyCode] : null;
+
+  if (ratesLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-slate-950">
+        <div className="text-center">
+          <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-slate-400 text-sm">Loading historical rates for {START_YEAR}…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (ratesError) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-slate-950">
+        <div className="text-center max-w-sm">
+          <p className="text-red-400 font-semibold mb-2">Failed to load rates from database</p>
+          <p className="text-slate-400 text-sm">Check your database connection and try again.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen bg-slate-950 text-white overflow-hidden">
@@ -194,7 +200,6 @@ export default function GamePage() {
       />
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Map area */}
         <div className="flex-1 p-3 min-w-0">
           <WorldMap
             selectedCountry={selectedCountry}
@@ -203,13 +208,12 @@ export default function GamePage() {
           />
         </div>
 
-        {/* Right panel */}
         <div className="w-80 xl:w-96 border-l border-slate-700/60 overflow-hidden flex flex-col bg-slate-900">
           {selectedCountry && selectedCurrency ? (
             <CurrencyBuyPanel
               countryName={selectedCountry}
               currency={selectedCurrency}
-              currentRate={currentRates[selectedCurrencyCode!] ?? selectedCurrency.baseRateToUSD}
+              currentRate={currentRates[selectedCurrencyCode!] ?? 1}
               balanceUSD={balanceUSD}
               existingHoldings={existingHoldingsForSelected}
               currentRound={round}
@@ -228,7 +232,6 @@ export default function GamePage() {
         </div>
       </div>
 
-      {/* Round outcome modal */}
       {phase === 'outcome' && (
         <RoundOutcomeModal
           round={round}
