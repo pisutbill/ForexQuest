@@ -6,7 +6,7 @@ import GameHeader from '@/components/GameHeader';
 import CurrencyBuyPanel from '@/components/CurrencyBuyPanel';
 import Portfolio from '@/components/Portfolio';
 import RoundOutcomeModal from '@/components/RoundOutcomeModal';
-import { CURRENCIES, COUNTRY_TO_CURRENCY } from '@/data/currencies';
+import { CURRENCIES } from '@/data/currencies';
 import { Holding, RoundResult, GamePhase } from '@/types/game';
 
 const WorldMap = dynamic(() => import('@/components/WorldMap'), {
@@ -42,6 +42,7 @@ export default function GamePage() {
   const [ratesLoading, setRatesLoading] = useState(true);
   const [ratesError, setRatesError] = useState(false);
 
+  const [countryToCurrency, setCountryToCurrency] = useState<Record<string, string>>({});
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [selectedCurrencyCode, setSelectedCurrencyCode] = useState<string | null>(null);
 
@@ -49,12 +50,16 @@ export default function GamePage() {
   const totalInvested = holdings.reduce((sum, h) => sum + h.usdSpent, 0);
 
   useEffect(() => {
-    fetchRatesForYear(START_YEAR).then((rates) => {
+    Promise.all([
+      fetchRatesForYear(START_YEAR),
+      fetch('/api/countries').then((r) => r.json()).then((d) => d.countries as Record<string, string>),
+    ]).then(([rates, countries]) => {
       if (rates) {
         setCurrentRates(rates);
       } else {
         setRatesError(true);
       }
+      setCountryToCurrency(countries ?? {});
       setRatesLoading(false);
     });
   }, []);
@@ -204,6 +209,7 @@ export default function GamePage() {
           <WorldMap
             selectedCountry={selectedCountry}
             holdings={holdings}
+            countryToCurrency={countryToCurrency}
             onCountryClick={handleCountryClick}
           />
         </div>

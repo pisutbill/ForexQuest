@@ -2,38 +2,58 @@
 
 import { useState } from 'react';
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simple-maps';
-import { COUNTRY_TO_CURRENCY } from '@/data/currencies';
 import { Holding } from '@/types/game';
 
 const GEO_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
 
+// Natural Earth (GeoJSON) country names that differ from the DB country names
+const GEO_TO_DB_NAME: Record<string, string> = {
+  'Ivory Coast': "Côte d'Ivoire",
+  'Dem. Rep. Congo': 'Congo',
+  'Congo': 'Republic of the Congo',
+  'Bosnia and Herz.': 'Bosnia and Herzegovina',
+  'Central African Rep.': 'Central African Republic',
+  'Dominican Rep.': 'Dominican Republic',
+  'Eq. Guinea': 'Equatorial Guinea',
+  'S. Sudan': 'South Sudan',
+  'Czechia': 'Czech Republic',
+  'Czech Rep.': 'Czech Republic',
+  'Trinidad and Tob.': 'Trinidad and Tobago',
+  'São Tomé and Principe': 'São Tomé and Príncipe',
+  'W. Sahara': 'Western Sahara',
+  'Macedonia': 'North Macedonia',
+  'Swaziland': 'Eswatini',
+  'Burma': 'Myanmar',
+  'Lao PDR': 'Laos',
+  'Viet Nam': 'Vietnam',
+  'Korea': 'South Korea',
+  'Timor-Leste': 'East Timor',
+  'Cape Verde': 'Cape Verde',
+  'Cabo Verde': 'Cape Verde',
+};
+
 interface WorldMapProps {
   selectedCountry: string | null;
   holdings: Holding[];
+  countryToCurrency: Record<string, string>;
   onCountryClick: (countryName: string, currencyCode: string) => void;
 }
 
-export default function WorldMap({ selectedCountry, holdings, onCountryClick }: WorldMapProps) {
+export default function WorldMap({ selectedCountry, holdings, countryToCurrency, onCountryClick }: WorldMapProps) {
   const [hoveredCountry, setHoveredCountry] = useState<string | null>(null);
 
   const currenciesWithHoldings = new Set(holdings.map((h) => h.currencyCode));
 
-  const getCountryFill = (countryName: string, isHovered: boolean) => {
-    const currencyCode = COUNTRY_TO_CURRENCY[countryName];
+  const resolveCountry = (geoName: string) => GEO_TO_DB_NAME[geoName] ?? geoName;
 
-    if (!currencyCode) {
-      return isHovered ? '#334155' : '#1e293b'; // not playable
-    }
+  const getCountryFill = (geoName: string, isHovered: boolean) => {
+    const dbName = resolveCountry(geoName);
+    const currencyCode = countryToCurrency[dbName];
 
-    if (countryName === selectedCountry) {
-      return isHovered ? '#60a5fa' : '#3b82f6'; // selected — blue
-    }
-
-    if (currenciesWithHoldings.has(currencyCode)) {
-      return isHovered ? '#fbbf24' : '#d97706'; // has holding — amber
-    }
-
-    return isHovered ? '#475569' : '#334155'; // playable — slate
+    if (!currencyCode) return isHovered ? '#334155' : '#1e293b';
+    if (dbName === selectedCountry) return isHovered ? '#60a5fa' : '#3b82f6';
+    if (currenciesWithHoldings.has(currencyCode)) return isHovered ? '#fbbf24' : '#d97706';
+    return isHovered ? '#475569' : '#334155';
   };
 
   return (
@@ -43,10 +63,11 @@ export default function WorldMap({ selectedCountry, holdings, onCountryClick }: 
         {hoveredCountry ? (
           <div className="bg-slate-800/90 backdrop-blur border border-slate-600 rounded-lg px-3 py-2 shadow-xl">
             {(() => {
-              const code = COUNTRY_TO_CURRENCY[hoveredCountry];
+              const dbName = resolveCountry(hoveredCountry);
+              const code = countryToCurrency[dbName];
               return (
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-white">{hoveredCountry}</span>
+                  <span className="text-sm font-semibold text-white">{dbName}</span>
                   {code ? (
                     <span className="text-xs text-slate-400 bg-slate-700 px-2 py-0.5 rounded font-mono">{code}</span>
                   ) : (
@@ -72,11 +93,12 @@ export default function WorldMap({ selectedCountry, holdings, onCountryClick }: 
           <Geographies geography={GEO_URL}>
             {({ geographies }) =>
               geographies.map((geo) => {
-                const countryName: string = geo.properties.name;
-                const currencyCode = COUNTRY_TO_CURRENCY[countryName];
+                const geoName: string = geo.properties.name;
+                const dbName = resolveCountry(geoName);
+                const currencyCode = countryToCurrency[dbName];
                 const isPlayable = !!currencyCode;
-                const isHovered = hoveredCountry === countryName;
-                const fill = getCountryFill(countryName, isHovered);
+                const isHovered = hoveredCountry === geoName;
+                const fill = getCountryFill(geoName, isHovered);
 
                 return (
                   <Geography
@@ -91,9 +113,9 @@ export default function WorldMap({ selectedCountry, holdings, onCountryClick }: 
                       pressed: { outline: 'none' },
                     }}
                     onClick={() => {
-                      if (isPlayable) onCountryClick(countryName, currencyCode);
+                      if (isPlayable) onCountryClick(dbName, currencyCode);
                     }}
-                    onMouseEnter={() => setHoveredCountry(countryName)}
+                    onMouseEnter={() => setHoveredCountry(geoName)}
                     onMouseLeave={() => setHoveredCountry(null)}
                   />
                 );
