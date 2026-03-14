@@ -7,7 +7,20 @@ import CurrencyBuyPanel from '@/components/CurrencyBuyPanel';
 import Portfolio from '@/components/Portfolio';
 import RoundOutcomeModal from '@/components/RoundOutcomeModal';
 import { CURRENCIES } from '@/data/currencies';
-import { Holding, RoundResult, GamePhase } from '@/types/game';
+import { CurrencyInfo, Holding, RoundResult, GamePhase } from '@/types/game';
+
+type DbCountryMap = Record<string, { code: string; name: string }>;
+
+function buildCurrencyInfo(code: string, dbName: string): CurrencyInfo {
+  return CURRENCIES[code] ?? {
+    currencyCode: code,
+    currencyName: dbName || code,
+    symbol: code,
+    flag: '🏳',
+    volatility: 'medium',
+    description: `Trade ${dbName || code} and track how its value changes over time.`,
+  };
+}
 
 const WorldMap = dynamic(() => import('@/components/WorldMap'), {
   ssr: false,
@@ -43,7 +56,7 @@ export default function GamePage() {
   const [ratesLoading, setRatesLoading] = useState(true);
   const [ratesError, setRatesError] = useState(false);
 
-  const [countryToCurrency, setCountryToCurrency] = useState<Record<string, string>>({});
+  const [countryToCurrency, setCountryToCurrency] = useState<DbCountryMap>({});
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [selectedCurrencyCode, setSelectedCurrencyCode] = useState<string | null>(null);
 
@@ -53,7 +66,7 @@ export default function GamePage() {
   useEffect(() => {
     Promise.all([
       fetchRatesForYear(START_YEAR),
-      fetch('/api/countries').then((r) => r.json()).then((d) => d.countries as Record<string, string>),
+      fetch('/api/countries').then((r) => r.json()).then((d) => d.countries as DbCountryMap),
     ]).then(([rates, countries]) => {
       if (rates) {
         setCurrentRates(rates);
@@ -82,10 +95,9 @@ export default function GamePage() {
 
   const handleBuy = (usdAmount: number) => {
     if (!selectedCurrencyCode || !selectedCountry) return;
-    const currency = CURRENCIES[selectedCurrencyCode];
-    if (!currency) return;
     const rate = currentRates[selectedCurrencyCode];
     if (!rate) return;
+    const currency = buildCurrencyInfo(selectedCurrencyCode, countryToCurrency[selectedCountry]?.name ?? '');
 
     const newHolding: Holding = {
       id: `${selectedCurrencyCode}-${Date.now()}`,
@@ -121,7 +133,6 @@ export default function GamePage() {
     }, {});
 
     const results: RoundResult[] = Object.entries(grouped).map(([code, hs]) => {
-      const currency = CURRENCIES[code];
       const totalFC = hs.reduce((s, h) => s + h.amountFC, 0);
       const totalSpent = hs.reduce((s, h) => s + h.usdSpent, 0);
       const purchaseRateToUSD = totalFC / totalSpent;
@@ -135,10 +146,10 @@ export default function GamePage() {
 
       return {
         currencyCode: code,
-        currencyName: currency?.currencyName ?? code,
+        currencyName: hs[0].currencyName,
         countryName: hs[0].countryName,
-        symbol: currency?.symbol ?? '',
-        flag: currency?.flag ?? '🏳',
+        symbol: hs[0].symbol,
+        flag: hs[0].flag,
         amountFC: totalFC,
         usdSpent: totalSpent,
         purchaseRateToUSD,
@@ -171,7 +182,18 @@ export default function GamePage() {
     setRoundResults([]);
   };
 
-  const selectedCurrency = selectedCurrencyCode ? CURRENCIES[selectedCurrencyCode] : null;
+  const countryCodeMap = useMemo(
+    () => Object.fromEntries(
+      Object.entries(countryToCurrency)
+        .filter(([, v]) => currentRates[v.code] !== undefined)
+        .map(([k, v]) => [k, v.code])
+    ),
+    [countryToCurrency, currentRates]
+  );
+
+  const selectedCurrency = selectedCurrencyCode
+    ? buildCurrencyInfo(selectedCurrencyCode, countryToCurrency[selectedCountry ?? '']?.name ?? '')
+    : null;
 
   if (ratesLoading) {
     return (
@@ -211,7 +233,7 @@ export default function GamePage() {
           <WorldMap
             selectedCountry={selectedCountry}
             holdings={holdings}
-            countryToCurrency={countryToCurrency}
+            countryToCurrency={countryCodeMap}
             onCountryClick={handleCountryClick}
           />
         </div>

@@ -8,10 +8,24 @@ const prisma = new PrismaClient({ adapter });
 const FIXER_KEY = process.env.FIXER_API_KEY;
 
 const GAME_CURRENCIES = [
-  'GBP','EUR','JPY','CNY','AUD','CAD','CHF','INR','BRL','MXN',
-  'KRW','SGD','HKD','NOK','SEK','DKK','NZD','ZAR','TRY','THB',
-  'MYR','IDR','PHP','VND','AED','SAR','EGP','NGN','ARS','CLP',
-  'PLN','CZK','HUF','RUB','ILS','USD',
+  'AUD','CAD','CHF','CYP','CZK','DKK','EEK','EUR','GBP','HKD',
+  'HUF','ISK','JPY','KRW','LTL','LVL','MTL','NOK','NZD','PLN',
+  'ROL','SEK','SGD','SIT','SKK','TRL','ZAR','BGN','CNY','HRK',
+  'IDR','MYR','PHP','RON','RUB','THB','TRY','BRL','MXN','INR',
+  'ILS','ANG','AWG','BBD','BMD','BSD','FKP','KPW','LKR','PAB',
+  'SAR','SHP','TWD','XDR','XPF','AED','ALL','ARS','BDT','BHD',
+  'BIF','BND','BOB','BTN','BWP','BZD','CLP','COP','CRC','CVE',
+  'DJF','DOP','EGP','ETB','FJD','GIP','GMD','GNF','GTQ','GYD',
+  'HNL','HTG','IQD','IRR','JMD','JOD','KES','KHR','KMF','KWD',
+  'KZT','LAK','LBP','LSL','LYD','MAD','MMK','MNT','MOP','MUR',
+  'MVR','MWK','NAD','NGN','NIO','NPR','OMR','PEN','PGK','PKR',
+  'PYG','QAR','SBD','SCR','SLL','SOS','SVC','SYP','SZL','TND',
+  'TOP','TTD','TZS','UAH','UGX','VND','VUV','WST','XAF','XCD',
+  'XOF','ZMK','AMD','BYR','CDF','DZD','GEL','KGS','MDL','MKD',
+  'RWF','STD','TJS','UZS','YER','UYU','LRD','AOA','MGA','AFN',
+  'AZN','BAM','GHS','MZN','RSD','SDG','SRD','TMT','CLF','BTC',
+  'CUP','JEP','KYD','ZWL','ERN','XAG','XAU','ZMW','GGP','IMP',
+  'CUC','BYN','CNH','MRU','SLE','VES','STN','XCG','USD',
 ];
 
 async function getRatesFromDB(year: number): Promise<Record<string, number> | null> {
